@@ -15,8 +15,9 @@ from bcncita import (
 
 
 class TestBot(unittest.TestCase):
-    def test_cita(self):
-        params = {
+    def setUp(self):
+        """Common test parameters for all tests."""
+        self.params = {
             "chrome_driver_path": "chromedriver",
             "auto_office": True,
             "auto_captcha": True,
@@ -27,39 +28,33 @@ class TestBot(unittest.TestCase):
             "email": "ghtvgdr@affecting.org",
         }
 
+    def test_cita_initial_flow(self):
+        """Test cita flow with BREXIT operation in Barcelona."""
         customer = CustomerProfile(
-            **params,
+            **self.params,
             province=Province.BARCELONA,
             operation_code=OperationType.BREXIT,
             offices=[Office.BARCELONA],
         )
-        with self.assertLogs(None, level=logging.INFO) as logs:
+
+        with self.assertLogs(level=logging.INFO) as logs:
             try_cita(context=customer, cycles=1)
 
-        self.assertIn("INFO:root:\x1b[33m[Attempt 1/1]\x1b[0m", logs.output)
-        self.assertIn("INFO:root:[Step 1/6] Personal info", logs.output)
-        self.assertIn("INFO:root:[Step 2/6] Office selection", logs.output)
-        self.assertIn("INFO:root:[Step 3/6] Contact info", logs.output)
-        self.assertIn("INFO:root:[Step 4/6] Cita attempt -> selection hit!", logs.output)
+        expected_logs = [
+            "INFO:root:\x1b[33m[Attempt 1/1]\x1b[0m",
+            "INFO:root:[Step 1/6] Personal info",
+            "INFO:root:[Step 2/6] Office selection",
+            "INFO:root:[Step 3/6] Contact info",
+            "INFO:root:[Step 4/6] Cita attempt -> selection hit!",
+        ]
+        for log in expected_logs:
+            self.assertIn(log, logs.output)
 
-        driver = init_wedriver(customer)
+    def test_instructions_page_for_all_provinces(self):
+        """Ensure instructions page loads for all provinces."""
+        driver = init_wedriver(CustomerProfile(**self.params))
+
         for province in Province:
             customer = CustomerProfile(
-                **params,
-                province=province,
-                operation_code=OperationType.TOMA_HUELLAS,
-            )
-            with self.assertLogs(None, level=logging.INFO) as logs:
-                start_with(driver=driver, context=customer, cycles=1)
-
-            self.assertIn(
-                "INFO:root:Instructions page loaded",
-                logs.output,
-                msg=f"Can't load instructions for province={province}",
-            )
-
-
-if __name__ == "__main__":
-    if not os.environ.get("CITA_TEST"):
-        os._exit(0)
-    unittest.main()
+                **self.params,
+                pro
